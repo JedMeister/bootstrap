@@ -14,13 +14,13 @@ endif
 ifndef FAB_ARCH
 $(info FAB_ARCH not defined - falling back to system: '$(LOCAL_ARCH)')
 FAB_ARCH := $(LOCAL_ARCH)
-else
-ifneq ($(ARCH),$(LOCAL_ARCH))
+endif
+
+ifneq ($(FAB_ARCH),$(LOCAL_ARCH))
 ifeq ($(LOCAL_ARCH),arm64)
 $(error amd64 bootstrap can not be built on arm64)
 else
 ARM_ON_AMD := y
-endif
 endif
 endif
 
@@ -74,6 +74,7 @@ help:
 	@echo '  bootstrap        # build bootstrap with debootstrap'
 	@echo '  show-packages    # show packages installed in bootstrap'
 	@echo '  removelist       # apply removelist'
+	@echo '  install          # rsymc bootstrap to FAB_PATH/bootstraps/CODENAME-ARCH'
 	@echo '  bootstrap.tar.gz # build tarball from bootstrap'
 
 .PHONY: clean
@@ -91,14 +92,12 @@ ifneq ($(LOCAL_CODENAME), $(CODENAME))
 	@echo '***Note: OS release transition may require a newer version of `debootstrap`.'
 	@echo
 endif
-	debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
+
 ifdef ARM_ON_AMD
 	install-arm-on-amd-deps || echo "Please make sure you have the latest version of fab installed"
-	cp /usr/bin/qemu-aarch64-static $O/bootstrap-$(FAB_ARCH)/usr/bin
-	$(info - final part of debootstrap is not complete)
-	#mount -t proc /proc $O/bootstrap/proc
-	#mount -t sysfs /sys $O/bootstrap/sys/
-	#mount -o bind /dev $O/bootstrap/dev/
+	qemu-debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
+else
+	debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
 endif
 
 .PHONY: bootstrap-$(FAB_ARCH)
@@ -116,4 +115,4 @@ bootstrap-$(FAB_ARCH).tar.gz: $O/bootstrap-$(FAB_ARCH).tar.gz
 
 .PHONY: install
 install: removelist
-	rsync --delete -Hac $O/bootstrap-$(FAB_ARCH)/ $(FAB_PATH)/bootstraps-$(FAB_ARCH)/$(shell basename $(CODENAME))/
+	rsync --delete -Hac $O/bootstrap-$(FAB_ARCH)/ $(FAB_PATH)/bootstraps/$(shell basename $(CODENAME))-$(FAB_ARCH)/
