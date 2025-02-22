@@ -5,7 +5,7 @@ This project builds a Debian ``bootstrap`` for use as a base for
 building TurnKey GNU/Linux appliances.
 
 A ``bootstrap`` is the minimal root filesystem in which packages can
-be installed. As of v16.0 / Debian 10/Buster TurnKey uses a default
+be installed. TurnKey uses ``debootstrap`` to build a default
 "minbase" variant Debian bootstrap, with the addition of a couple of
 packages.
 
@@ -13,6 +13,27 @@ For further info please run::
 
     make help
 
+Current supported architectures are:
+- amd64 (aka x86_64)
+- arm64 (aka aarch64)
+
+An amd64 host can build both amd64 & arch64; an arm64 host can only build
+arm64.
+
+Dependencies
+============
+
+To build a bootstrap for an architechture the same as the host, "debootstrap"
+is the only package required.
+
+To build arm64 bootstrap on amd64, the following packages are required:
+
+- qemu-system-arm
+- qemu-user-static
+- binfmt-support
+
+Assuming fab is installed, the ``install-arm-on-amd-deps`` contib script will
+check that they are installed and install them if needed.
 
 Build & copy to bootstraps directory
 ====================================
@@ -23,26 +44,7 @@ Instead you can just build to the ``install`` target.
 
 That will build the bootstrap, remove the pre-set list of files noted
 within the removelist file and copy the bootstrap to
-``$FAB_PATH/bootstraps/$(basename $RELEASE)``::
+``$FAB_PATH/bootstraps/$(basename $RELEASE-$ARCH)``::
 
     make clean
     make install
-
-Generate release tarball, sign and publish
-==========================================
-
-These notes have been superceeded by `buildtasks/bt-bootstrap`_ but noted
-here for historical purposes::
-
-    ARCH=$(dpkg --print-architecture)
-    TARBALL=$FAB_PATH/build/bootstrap-$(basename $RELEASE)-$ARCH.tar.gz
-    ln build/bootstrap.tar.gz $TARBALL
-
-    cd turnkey-builds
-    source vars
-    export PUBLISH_DEST=${PUBLISH_IMAGES}/bootstrap/
-    $BT_BIN/generate-signature $TARBALL
-    $BT_BIN/signature-sign $TARBALL.hash
-    contrib/publish-files $TARBALL $TARBALL.hash
-
-.. _buildtasks/bt-bootstrap: https://github.com/turnkeylinux/buildtasks/blob/master/bt-bootstrap

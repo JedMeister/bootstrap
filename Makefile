@@ -4,16 +4,29 @@
 LOCAL_DISTRO := $(shell lsb_release -si | tr [A-Z] [a-z])
 LOCAL_CODENAME := $(shell lsb_release -sc)
 LOCAL_RELEASE := $(LOCAL_DISTRO)/$(LOCAL_CODENAME)
+LOCAL_ARCH := $(shell dpkg --print-architecture)
 
 ifndef RELEASE
 $(info RELEASE not defined - falling back to system: '$(LOCAL_RELEASE)')
 RELEASE := $(LOCAL_RELEASE)
 endif
 
+ifndef FAB_ARCH
+$(info FAB_ARCH not defined - falling back to system: '$(LOCAL_ARCH)')
+FAB_ARCH := $(LOCAL_ARCH)
+else
+ifneq ($(ARCH),$(LOCAL_ARCH))
+ifeq ($(LOCAL_ARCH),arm64)
+$(error amd64 bootstrap can not be built on arm64)
+else
+ARM_ON_AMD := y
+endif
+endif
+endif
+
 DISTRO ?= $(shell dirname $(RELEASE))
 CODENAME ?= $(shell basename $(RELEASE))
 
-FAB_ARCH ?= $(shell dpkg --print-architecture)
 MIRROR ?= http://deb.debian.org/debian
 VARIANT ?= minbase
 EXTRA_PKGS ?= initramfs-tools,gpg,gpg-agent,ca-certificates,lsb-release
@@ -23,7 +36,7 @@ REMOVELIST ?= ./removelist
 O ?= build
 
 .PHONY: all
-all: $O/bootstrap.tar.gz
+all: $O/bootstrap-$(FAB_ARCH).tar.gz
 
 help:
 	@echo '=== Configurable variables'
@@ -40,6 +53,8 @@ help:
 	@echo
 	@echo '# Build context variables'
 	@echo '  FAB_ARCH                   $(value FAB_ARCH)'
+	@echo '                             if not set, will fall back to system:'
+	@echo '                                 $(value LOCAL_ARCH)'
 	@echo '  MIRROR                     $(value MIRROR)'
 	@echo '  VARIANT                    $(value VARIANT)'
 	@echo '  EXTRA_PKGS                 $(value EXTRA_PKGS)'
@@ -63,34 +78,42 @@ help:
 
 .PHONY: clean
 clean:
-	rm -rf $O/bootstrap $O/bootstrap.tar.gz
+	rm -rf $O/bootstrap*
 
 .PHONY: show-packages
 show-packages: $O/bootstrap
-	fab-chroot build/bootstrap "dpkg -l | grep ^ii"
+	fab-chroot build/bootstrap-* "dpkg -l | grep ^ii"
 
-$O/bootstrap:
+$O/bootstrap-$(FAB_ARCH):
 	mkdir -p $O
 ifneq ($(LOCAL_CODENAME), $(CODENAME))
 	@echo
 	@echo '***Note: OS release transition may require a newer version of `debootstrap`.'
 	@echo
 endif
-	debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap $(MIRROR)
+	debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
+ifdef ARM_ON_AMD
+	install-arm-on-amd-deps || echo "Please make sure you have the latest version of fab installed"
+	cp /usr/bin/qemu-aarch64-static $O/bootstrap-$(FAB_ARCH)/usr/bin
+	$(info - final part of debootstrap is not complete)
+	#mount -t proc /proc $O/bootstrap/proc
+	#mount -t sysfs /sys $O/bootstrap/sys/
+	#mount -o bind /dev $O/bootstrap/dev/
+endif
 
-.PHONY: bootstrap
-bootstrap: $O/bootstrap
+.PHONY: bootstrap-$(FAB_ARCH)
+bootstrap: $O/bootstrap-$(FAB_ARCH)
 
 .PHONY: removelist
-removelist: $O/bootstrap
-	fab-apply-removelist $(REMOVELIST) $O/bootstrap
+removelist: $O/bootstrap-$(FAB_ARCH)
+	fab-apply-removelist $(REMOVELIST) $O/bootstrap-$(FAB_ARCH)
 
-$O/bootstrap.tar.gz: removelist
-	tar -C $O/bootstrap -zcf $O/bootstrap.tar.gz .
+$O/bootstrap-$(FAB_ARCH).tar.gz: removelist
+	tar -C $O/bootstrap-$(FAB_ARCH) -zcf $O/bootstrap-$(FAB_ARCH).tar.gz .
 
-.PHONY: bootstrap.tar.gz
-bootstrap.tar.gz: $O/bootstrap.tar.gz
+.PHONY: bootstrap-$(FAB_ARCH).tar.gz
+bootstrap-$(FAB_ARCH).tar.gz: $O/bootstrap-$(FAB_ARCH).tar.gz
 
 .PHONY: install
 install: removelist
-	rsync --delete -Hac $O/bootstrap/ $(FAB_PATH)/bootstraps/$(shell basename $(CODENAME))/
+	rsync --delete -Hac $O/bootstrap-$(FAB_ARCH)/ $(FAB_PATH)/bootstraps-$(FAB_ARCH)/$(shell basename $(CODENAME))/
