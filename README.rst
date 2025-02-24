@@ -20,21 +20,6 @@ Current supported architectures are:
 An amd64 host can build both amd64 & arch64; an arm64 host can only build
 arm64.
 
-Dependencies
-============
-
-To build a bootstrap for an architechture the same as the host, "debootstrap"
-is the only package required.
-
-To build arm64 bootstrap on amd64, the following packages are required:
-
-- qemu-system-arm
-- qemu-user-static
-- binfmt-support
-
-Assuming fab is installed, the ``install-arm-on-amd-deps`` contib script will
-check that they are installed and install them if needed.
-
 Build & copy to bootstraps directory
 ====================================
 
@@ -48,3 +33,36 @@ within the removelist file and copy the bootstrap to
 
     make clean
     make install
+
+Build arm64 bootstrap on amd64
+==============================
+
+The default action is to build a bootstrap with the same architecture as the
+host. However, it is possible to build an arm64 (aka aarch64) bootstrap on an
+amd64 (aka x86_64) system.
+
+Dependencies
+------------
+
+To build a bootstrap for an architechture the same as the host, ``debootstrap``
+is the only package required.
+
+To build arm64 bootstrap on amd64, the following packages are required:
+
+- qemu-system-arm
+- qemu-user-static
+- binfmt-support
+
+Assuming fab is installed (as it is by default on TKLDev), a
+``install-arm-on-amd-deps`` contib script will check that they are installed
+and install them if needed.
+
+Usage
+-----
+
+By default ``make`` will build the architecture of the host system. To build
+arm64 on amd64, set ``FAB_ARCH=arm64``
+
+E.g.::
+
+    FAB_ARCH=64 make install
