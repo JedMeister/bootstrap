@@ -1,23 +1,24 @@
 #!/usr/bin/make -f
 # Copyright (c) 2020-2021 TurnKey GNU/Linux - https://www.turnkeylinux.org
 
-LOCAL_DISTRO := $(shell lsb_release -si | tr [A-Z] [a-z])
-LOCAL_CODENAME := $(shell lsb_release -sc)
-LOCAL_RELEASE := $(LOCAL_DISTRO)/$(LOCAL_CODENAME)
-LOCAL_ARCH := $(shell dpkg --print-architecture)
+HOST_DISTRO := $(shell lsb_release -si | tr [A-Z] [a-z])
+HOST_CODENAME := $(shell lsb_release -sc)
+HOST_RELEASE := $(HOST_DISTRO)/$(HOST_CODENAME)
+HOST_ARCH := $(shell dpkg --print-architecture)
 
 ifndef RELEASE
-$(info RELEASE not defined - falling back to system: '$(LOCAL_RELEASE)')
-RELEASE := $(LOCAL_RELEASE)
+$(info RELEASE not defined - falling back to system: '$(HOST_RELEASE)')
+RELEASE := $(HOST_RELEASE)
 endif
 
 ifndef FAB_ARCH
-$(info FAB_ARCH not defined - falling back to system: '$(LOCAL_ARCH)')
-FAB_ARCH := $(LOCAL_ARCH)
+$(info FAB_ARCH not defined - falling back to system: '$(HOST_ARCH)')
+FAB_ARCH := $(HOST_ARCH)
 endif
 
-ifneq ($(FAB_ARCH),$(LOCAL_ARCH))
-ifeq ($(LOCAL_ARCH),arm64)
+ifneq ($(FAB_ARCH),$(HOST_ARCH))
+$(info building $(FAB_ARCH) on $(HOST_ARCH))
+ifeq ($(HOST_ARCH),arm64)
 $(error amd64 bootstrap can not be built on arm64)
 else
 ARM_ON_AMD := y
@@ -49,12 +50,12 @@ help:
 	@echo '# Recommended configuration variables:'
 	@echo '  RELEASE                    $(value RELEASE)'
 	@echo '                             if not set, will fall back to system:'
-	@echo '                             	$(value LOCAL_RELEASE)'
+	@echo '                             	$(value HOST_RELEASE)'
 	@echo
 	@echo '# Build context variables'
 	@echo '  FAB_ARCH                   $(value FAB_ARCH)'
 	@echo '                             if not set, will fall back to system:'
-	@echo '                                 $(value LOCAL_ARCH)'
+	@echo '                                 $(value HOST_ARCH)'
 	@echo '  MIRROR                     $(value MIRROR)'
 	@echo '  VARIANT                    $(value VARIANT)'
 	@echo '  EXTRA_PKGS                 $(value EXTRA_PKGS)'
@@ -87,14 +88,14 @@ show-packages: $O/bootstrap
 
 $O/bootstrap-$(FAB_ARCH):
 	mkdir -p $O
-ifneq ($(LOCAL_CODENAME), $(CODENAME))
+ifneq ($(HOST_CODENAME), $(CODENAME))
 	@echo
 	@echo '***Note: OS release transition may require a newer version of `debootstrap`.'
 	@echo
 endif
 
 ifdef ARM_ON_AMD
-	install-arm-on-amd-deps || echo "Please make sure you have the latest version of fab installed"
+	@install-arm-on-amd-deps || echo "Please make sure you have the latest version of fab installed"
 	qemu-debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
 else
 	debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
