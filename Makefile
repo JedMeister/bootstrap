@@ -1,10 +1,21 @@
 #!/usr/bin/make -f
-# Copyright (c) 2020-2021 TurnKey GNU/Linux - https://www.turnkeylinux.org
+# Copyright (c) 2020-2025 TurnKey GNU/Linux - https://www.turnkeylinux.org
 
 HOST_DISTRO := $(shell lsb_release -si | tr [A-Z] [a-z])
 HOST_CODENAME := $(shell lsb_release -sc)
 HOST_RELEASE := $(HOST_DISTRO)/$(HOST_CODENAME)
 HOST_ARCH := $(shell dpkg --print-architecture)
+
+ifndef BOOTSTRAPS_PATH
+ifndef FAB_PATH
+ifdef SUDO_USER
+$(info running via sudo - BOOTSTAPS_PATH or FAB_PATH need to be set)
+endif
+$(error neither BOOTSTAPS_PATH or FAB_PATH are set)
+else
+BOOTSTRAPS_PATH := $(FAB_PATH)/bootstraps
+endif
+endif
 
 ifndef RELEASE
 $(info RELEASE not defined - falling back to system: '$(HOST_RELEASE)')
@@ -46,6 +57,14 @@ help:
 	@echo '2) product Makefile'
 	@echo '3) environment variable'
 	@echo '4) built-in default (lowest precedence)'
+	@echo
+	@echo '# Required environment/configuration variables'
+	@echo '# - one of:'
+	@echo '  BOOTSTRAPS_PATH            $(value BOOTSTRAPS_PATH)'
+	@echo '                             root directory to rsync bootstrap to'
+	@echo '  FAB_PATH                   $(value FAB_PATH)'
+	@echo '                             if BOOTSTRAPS_PATH not set, will'
+	@echo '                               fallback to FAB_PATH/bootstraps'
 	@echo
 	@echo '# Recommended configuration variables:'
 	@echo '  RELEASE                    $(value RELEASE)'
@@ -95,7 +114,6 @@ ifneq ($(HOST_CODENAME), $(CODENAME))
 endif
 
 ifdef ARM_ON_AMD
-	@install-arm-on-amd-deps || echo "Please make sure you have the latest version of fab installed"
 	qemu-debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
 else
 	debootstrap --arch=$(FAB_ARCH) --variant=$(VARIANT) --include=$(EXTRA_PKGS) $(CODENAME) $O/bootstrap-$(FAB_ARCH) $(MIRROR)
@@ -116,4 +134,5 @@ bootstrap-$(FAB_ARCH).tar.gz: $O/bootstrap-$(FAB_ARCH).tar.gz
 
 .PHONY: install
 install: removelist
-	rsync --delete -Hac $O/bootstrap-$(FAB_ARCH)/ $(FAB_PATH)/bootstraps/$(shell basename $(CODENAME))-$(FAB_ARCH)/
+	mkdir -p $(BOOTSTRAPS_PATH)
+	rsync --delete -Hac $O/bootstrap-$(FAB_ARCH)/ $(BOOTSTRAPS_PATH)/$(shell basename $(CODENAME))-$(FAB_ARCH)/
