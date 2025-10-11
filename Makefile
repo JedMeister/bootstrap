@@ -41,7 +41,7 @@ CODENAME ?= $(shell basename $(RELEASE))
 
 MIRROR ?= http://deb.debian.org/debian
 VARIANT ?= minbase
-EXTRA_PKGS ?= initramfs-tools,gpg,gpg-agent,ca-certificates,lsb-release
+EXTRA_PKGS ?= initramfs-tools,gpg,gpg-agent,ca-certificates,lsb-release,zstd
 REMOVELIST ?= ./removelist
 
 # build output path
