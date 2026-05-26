@@ -6,6 +6,11 @@ HOST_CODENAME := $(shell lsb_release -sc)
 HOST_RELEASE := $(HOST_DISTRO)/$(HOST_CODENAME)
 HOST_ARCH := $(shell dpkg --print-architecture)
 
+REQUIRED_CMDS := fab pool
+$(foreach cmd,$(REQUIRED_CMDS),\
+  $(if $(shell which $(cmd) 2>/dev/null),,\
+  $(error "Required package missing - run: 'apt update && apt install -y $(cmd)")))
+
 ifndef BOOTSTRAPS_PATH
 ifndef FAB_PATH
 ifdef SUDO_USER
