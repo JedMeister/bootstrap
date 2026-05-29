@@ -1,44 +1,52 @@
 #!/usr/bin/make -f
-# Copyright (c) 2020-2025 TurnKey GNU/Linux - https://www.turnkeylinux.org
+# Copyright (c) 2020-2026 TurnKey GNU/Linux - https://www.turnkeylinux.org
 
 HOST_DISTRO := $(shell lsb_release -si | tr [A-Z] [a-z])
 HOST_CODENAME := $(shell lsb_release -sc)
 HOST_RELEASE := $(HOST_DISTRO)/$(HOST_CODENAME)
 HOST_ARCH := $(shell dpkg --print-architecture)
 
-REQUIRED_CMDS := fab pool
-$(foreach cmd,$(REQUIRED_CMDS),\
-  $(if $(shell which $(cmd) 2>/dev/null),,\
-  $(error "Required package missing - run: 'apt update && apt install -y $(cmd)")))
-
 ifndef BOOTSTRAPS_PATH
-ifndef FAB_PATH
-ifdef SUDO_USER
-$(info running via sudo - BOOTSTAPS_PATH or FAB_PATH need to be set)
-endif
-$(error neither BOOTSTAPS_PATH or FAB_PATH are set)
-else
-BOOTSTRAPS_PATH := $(FAB_PATH)/bootstraps
-endif
+  ifndef FAB_PATH
+    ifdef SUDO_USER
+      $(info running via sudo - BOOTSTAPS_PATH or FAB_PATH need to be set)
+    endif
+    $(error neither BOOTSTAPS_PATH or FAB_PATH are set)
+  else
+    BOOTSTRAPS_PATH := $(FAB_PATH)/bootstraps
+  endif
 endif
 
 ifndef RELEASE
-$(info RELEASE not defined - falling back to system: '$(HOST_RELEASE)')
-RELEASE := $(HOST_RELEASE)
+  $(info RELEASE not defined - falling back to system: '$(HOST_RELEASE)')
+  RELEASE := $(HOST_RELEASE)
 endif
 
 ifndef FAB_ARCH
-$(info FAB_ARCH not defined - falling back to system: '$(HOST_ARCH)')
-FAB_ARCH := $(HOST_ARCH)
+  $(info FAB_ARCH not defined - falling back to system: '$(HOST_ARCH)')
+  FAB_ARCH := $(HOST_ARCH)
 endif
 
 ifneq ($(FAB_ARCH),$(HOST_ARCH))
-$(info building $(FAB_ARCH) on $(HOST_ARCH))
-ifeq ($(HOST_ARCH),arm64)
-$(error amd64 bootstrap can not be built on arm64)
-else
-ARM_ON_AMD := y
+  $(info building $(FAB_ARCH) on $(HOST_ARCH))
+  ifeq ($(HOST_ARCH),arm64)
+    $(error amd64 bootstrap can not be built on arm64)
+  else
+  ARM_ON_AMD := y
+  endif
 endif
+
+REQUIRED_CMDS := fab pool
+ifdef ARM_ON_AMD
+  REQUIRED_CMDS += qemu-debootstrap qemu-system-arm qemu-user-static binfmt-support
+else
+  REQUIRED_CMDS += debootstrap
+endif
+
+$(foreach cmd, $(REQUIRED_CMDS),\
+  $(if $(shell which $(cmd) 2>/dev/null),,$(eval MISSING += $(cmd))))
+ifdef MISSING
+  $(error "Required packages missing - run: 'apt update && apt install -y $(MISSING)"))
 endif
 
 DISTRO ?= $(shell dirname $(RELEASE))
