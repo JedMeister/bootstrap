@@ -19,11 +19,13 @@ endif
 
 ifndef RELEASE
   $(info RELEASE not defined - falling back to system: '$(HOST_RELEASE)')
+  $(info )
   RELEASE := $(HOST_RELEASE)
 endif
 
 ifndef FAB_ARCH
   $(info FAB_ARCH not defined - falling back to system: '$(HOST_ARCH)')
+  $(info )
   FAB_ARCH := $(HOST_ARCH)
 endif
 
@@ -46,7 +48,13 @@ endif
 $(foreach cmd, $(REQUIRED_CMDS),\
   $(if $(shell which $(cmd) 2>/dev/null),,$(eval MISSING += $(cmd))))
 ifdef MISSING
-  $(error "Required packages missing - run: 'apt update && apt install -y $(MISSING)"))
+  MISSING_MSG := Dendencies missing - run: 'apt update && apt install -y $(MISSING)'
+  ifneq ($(MAKECMDGOALS),help)
+    $(error $(MISSING_MSG))
+  else
+    $(info *** $(MISSING_MSG))
+    $(info )
+  endif
 endif
 
 DISTRO ?= $(shell dirname $(RELEASE))
